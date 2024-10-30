@@ -4,13 +4,15 @@ import openai
 import os
 from util import filter_str
 
-def interface_gpt(messages, question):
+def interface_gpt(messages, question, temperature=0, top_p=1):
     """
     Interfaces with GPT model to generate answer to a query via OpenAI API
 
     Args:
         messages: (list[dict]) past history of user prompts and GPT responses
         question: (str) the question of interest
+        temperature: (float) the temperature to control the randomness
+        top_p: (float) 0.5
 
     Returns:
         (str) response to the prompt
@@ -19,7 +21,8 @@ def interface_gpt(messages, question):
 
     messages.append({"role":"user", "content":question})
     try:
-        response = openai.ChatCompletion.create(model="gpt-4", messages=messages)
+        response = openai.ChatCompletion.create(model="gpt-4", messages=messages, temperature=temperature,
+                                                top_p=top_p)
         answer = response['choices'][0]['message']['content'].strip()
 
         return answer
@@ -57,6 +60,7 @@ def restructure_gpt_response(response):
         (dict)
     """
 
+    print("length repsose", len(response))
     dict_graph = {"treatment": filter_str(response[1].strip()), "outcome": filter_str(response[2].strip()),
                   "other_vars": [filter_str(var.strip()) for var in response[3].split(",")],
                   "unobserved_vars":None, "unobserved_edges":None}

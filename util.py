@@ -34,4 +34,7 @@ def filter_str(text):
 
     return cleaned
 
+
+
+
    # return re.sub("[^a-zA-Z]+", "", text)
