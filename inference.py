@@ -8,6 +8,39 @@ import numpy as np
 from ananke.models import LinearGaussianSEM
 from ananke.estimation import CausalEffect
 
+
+class Estimator:
+    """
+    a wrapper class for representing all estimators
+    Attributes:
+        method_name: (str) the name of the estimation method 
+        ate: () the average treatment effect 
+        test: () the refutation test 
+
+    """
+
+    def __init__(self, ate, test_result):
+
+        self.ate = ate 
+        self.test = test_result 
+    
+    def return_ate(self):
+        """
+        Returns:
+            (float / None): the average treatment effect
+        """
+
+        return self.ate.value if self.ate is not None else None 
+    
+    def get_test_result(self):
+        """
+        Returns:
+            (float / None)
+        """
+
+        return self.test_result 
+
+
 ## ToDo: For now we consider the case where there is only 1 treatment and 1 outcome variable
 class Inference:
     """
@@ -17,15 +50,15 @@ class Inference:
         data: (pd.DataFrame)
     """
 
-    def __init__(self, causal_graph, data):
+    def __init__(self, causal_graph, data, refute_method="bootstrap_refuter"):
 
         self.causal_graph = causal_graph
-
         self.data = data
         self.identifiable = None
         self.estimand = None
         self.treat_var = causal_graph.get_treatment_var()
         self.outcome_var = causal_graph.get_outcome_var()
+        self.refute_method = refute_method 
 
     def full_inference_pipeline(self):
         """
@@ -41,9 +74,7 @@ class Inference:
         performs identification
         """
 
-        self.identification()
-
-        return self.estimation()
+        pass 
 
     def estimation(self):
         """
@@ -56,8 +87,14 @@ class Inference:
         pass
 
     def is_identified(self):
+        """
+        whether the causal effect is identifiable or not 
+        Returns:
+            (bool)
+        """
 
         return self.identifiable
+
 
 class DowhyInference(Inference):
     """
@@ -73,22 +110,11 @@ class DowhyInference(Inference):
         self.model.view_model(layout="dot")  # This generates the graph
         #im_graph.draw("graph_plots/dowhy_model.png", prog="dot")
 
-    def estimation(self):
+
+    def identification(self, print_=True):
         """
-        returns the treatment effect estimation
+        Performs identification using DoWhy
         """
-        n_treat_var = np.unique(self.data[self.treat_var].to_numpy())
-        estimate = {}
-        ## assuming this is binary. later we can relax this to account for non-binary cases
-        if len(n_treat_var) == 2:
-            estimate["do_intervention"] = self.gcm_estimation()
-
-        estimate["backdoor"] = self.backdoor_estimation()
-        estimate["frontdoor"] = self.frontdoor_estimation()
-
-        return estimate
-
-    def identification(self, print_=False):
 
         self.estimand = self.model.identify_effect(proceed_when_unidentifiable=True)
         if print_:
@@ -98,7 +124,32 @@ class DowhyInference(Inference):
         self.identifiable = (len(self.estimand.get_backdoor_variables()) != 0 or
                              len(self.estimand.get_frontdoor_variables()) != 0)
 
-    def backdoor_estimation(self, method="linear_regression"):
+    def estimation(self, adjustments=["backdoor", "frontdoor", "iv"], 
+                  method_back="linear_regression", method_front="linear_regression",
+                  method_iv="iv.instrumental_variable"):
+        """
+        returns the treatment effect for different methods 
+        """
+
+        estimates = {}
+        for method in adjustments:
+            try:
+                if method == "backdoor":
+                    estimates[method] = self.backdoor_estimation(method_back)
+                elif method == "frontdoor":
+                    estimates[method] = self.frontdoor_estimation(method_front)
+                elif method == "iv":
+                    estimates[method] = self.iv_estimation()
+                else:
+                    raise ValueError(f"{method} is not a valid adjustment crieria")
+            except Exception as e:
+                estimates[method] = None 
+                raise Exception("Error")
+        
+        return estimates
+
+
+    def backdoor_estimation(self, method="propensity_score_weighting"):
         """
         Estimates the causal effect using backdoor criterion
         Args:
@@ -108,10 +159,16 @@ class DowhyInference(Inference):
         """
 
         method_name = "backdoor.{}".format(method)
+
         if len(self.estimand.get_backdoor_variables()) != 0:
             try:
                 ate = self.model.estimate_effect(self.estimand, method_name=method_name)
-                return ate.value
+                #refuter = self.model.refute_estimate(self.estimand, ate, 
+                #                                     method_name=self.refute_method) 
+                #estimator = Estimator(ate.value, refutation)
+
+                return ate.value 
+
             except Exception as e:
                 print("Got the following error: {}".format(e))
         else:
@@ -132,7 +189,12 @@ class DowhyInference(Inference):
             try:
                 ate = self.model.estimate_effect(self.estimand,
                                                  method_name=method_name)
-                return ate.value
+                #refuter = self.model.refute_estimate(self.estimand, ate, 
+                #                                     method_name=self.refute_method) 
+                #estimator = Estimator(ate.value, refutation)
+
+                return ate.value 
+
             except Exception as e:
                 print("Got the following error: {}".format(e))
         else:
@@ -140,22 +202,31 @@ class DowhyInference(Inference):
 
     ## ToDo: Add instrumental variable estimation
 
-    def gcm_estimation(self):
+    def iv_estimation(self):
         """
-        estimates the causal effect using do-interventions
+        Estimates the causal effect using instrumental variable"
+
         Returns:
-            (float)
+        (float/None)
         """
 
-        gcm_model = gcm.StructuralCausalModel(self.causal_graph.graph)
-        gcm.auto.assign_causal_mechanisms(gcm_model, self.data)
-        gcm.fit(gcm_model, self.data)
+        method_name = "iv.instrumental_variable"
+        if len(self.estimand.get_instrumental_variables()) != 0:
+            try:
+                ate = self.model.estimate_effect(self.estimand, 
+                                                 method_name=method_name)
+                #refuter = self.model.refute_estimate(self.estimand, ate, 
+                #                                     method_name=self.refute_method) 
+                #estimator = Estimator(ate.value, refutation)
 
-        causal_effect = gcm.average_causal_effect(gcm_model, self.outcome_var,
-                                                  interventions_alternative={self.treat_var: lambda x:1},
-                                                  interventions_reference={"T": lambda x: 0},
-                                                  num_samples_to_draw=1000)
-        return causal_effect
+                return ate.value 
+
+            except Exception as e:
+                print("Got the following error: {}".format(e))
+        else:
+            return None 
+        
+
 
 class AnankeInference(Inference):
     """
@@ -212,9 +283,9 @@ class AnankeInference(Inference):
         return ate
 
 
-def infer_causal_effect(graph, data=None):
+def infer_causal_effect(graph, data=None, method="linear_regression"):
     """
-    infers the causal effect associated with the graph
+    Infers the causal effect associated with the graph
     Args:
         graph: (CausalGraph)
         data: (pd.DataFrame)
@@ -227,6 +298,7 @@ def infer_causal_effect(graph, data=None):
         data = graph.generate_synthetic_data()
     tool = DowhyInference(graph, data)
     tool.identification(True)
+
     if tool.is_identified():
         print("Inference via DoWhy")
         return tool.estimation()

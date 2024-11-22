@@ -1,6 +1,123 @@
 ## This file contains classes / functions for representing prompts
 from gpt import interface_gpt
-class Prompt:
+import sys 
+
+def construct_prompt_0():
+    """
+    Constructs the zeroth, which provides the preliminary instructions. 
+
+    Returns:
+        (str)
+    """
+
+    opening = "You are a helpful assistant. I need your help to build a causal graph to model a query."
+    final_prompt = ("Please make your answer concise. Whenever possible, provide one-word or list-form "
+                    "answers only. Avoid explanations or full sentences.")
+    prompt_combined = opening + final_prompt
+
+    return prompt_combined
+
+
+def construct_prompt_1(query, data, additional_info):
+    """
+    Constructs the first prompt, which puts forward the query and other relevant information 
+
+    Args:
+        query: (str) The query of interest 
+        data: (pd.DataFrame / None) the available data 
+        additional_info: (str) Additional information that can give GPT more context
+    
+    Return:
+       (str)
+    """
+
+    query_prompt = "The query of interest is: {}\n".format(query)
+
+    data_prompt = ""
+    if data is not None:
+        data_prompt = ("I have a dataset that contains the following variables: {} \n".format(", ".join(list(data.columns))))
+    additional_prompt = ""
+    if len(additional_info) != 0:
+        additional_prompt = " Here is some additional information: {} ".format(additional_info)
+
+    closing = ("I am now going to ask you some questions. Base your responses on the information I have provided so far."
+               "Don't respond to this prompt")
+
+    return query_prompt +  data_prompt + additional_prompt + closing
+
+def ask_treatment(data, other_info=""):
+    """
+    Creates the prompt that asks about the treatment variable
+
+    Args:
+        data: (pd.DataFrame) the input data 
+        other_info: (str) Additional instruction to GPT specific to the treatment. 
+
+    Returns:
+        (str)
+    """
+
+    prompt = "What is the treatment variable?" + other_info
+    if data is not None:
+        prompt =  "What is the treatment variable based on the available data variables? " + other_info
+    
+    return prompt 
+
+
+def ask_outcome(data, other_info):
+    """
+    Creates the prompt that asks about the outcome variable 
+
+    Args:
+        data: (pd.DataFrame) the input data 
+        other_info: (str) Additional instruction to GPT specific to the treatment. 
+
+    Returns:
+        (str)
+    """
+
+    prompt = "What is the outcome variable? " + other_info 
+    if data is not None:
+        prompt = "What is the outcome variable based on the available data variables?" + other_info 
+    
+    return prompt 
+
+
+def ask_covariates(data, other_info):
+    """
+    Creates the prompt that asks about other variables in the model
+
+    Args:
+        data: (pd.DataFrame) the input data 
+        other_info: (str) Additional instruction to GPT specific to the treatment. 
+
+    Returns:
+        (str)
+    """
+
+ 
+    prompt = ("I want the causal graph to be informative. What are the other variables that we need to consider for this model? " 
+              "Make sure to include forks, colliders, and mediators in addition to other variables. Provide a comprehensive list") + other_info 
+    if data is not None:
+        prompt = "What are the other variables in the model based the data set?" + other_info 
+    
+    return prompt 
+
+
+def ask_edges():
+    """
+    Creates the prompt that asks bout the edges in the model
+    """
+
+    prompt =("List the plausible edges for the causal graph consisting based on the information so far. "
+            "I want the graph to be expressive. Include edges for mediators, colliders, and forks."
+            "\nWrite output in the format node1 -> node2. Include one set of edge in one line. Avoid cycles. " )
+    
+    return prompt 
+
+
+
+class CausalPrompt:
 
     """
     Base class to represent the general structure and order of prompts to ChatGPT
@@ -8,74 +125,59 @@ class Prompt:
 
     Attributes:
         query: (str) the natural language query
-        prompt0: (str) the opening prompt to setup the communication
-        prompt1: (str) prompt that presents the query to GPT
-        prompt2: (str) prompt asking th treatment variable
-        prompt3: (str) prompt asking the outcome variable
-        prompt4: (str) prompt asking other variables of interest
-        prompt5: (str) prompt asking the edges
+        other_info: (str) Additional information associated with the query 
+        prompt0: (str) the opening prompt 
     """
 
-    def __init__(self, query, make_small=True):
-        self.query = query
-        self.make_small = make_small
-        self.prompt0 = "You are a helpful assistant. I am interested in building a " \
-                        " causal graph to model a causal query. To help me build the graph, I will be asking you some" \
-                        " questions. I need to eventually translate your text-based response to a graph. Hence, it " \
-                        " will be immensely useful if your responses are concise. Further explanations and" \
-                        " elaborations are not needed. Whenever possible, answer in one word. "\
-                        "Also, no need to end answer with periods or enclose them with. Simple text suffices"
-        self.prompt1 = 'The question of interest is: {}?. Make '.format(query)
-        self.prompt2 = "What is the treatment variable?"
-        self.prompt3 = "Likewise, what is the outcome variable?"
-        if make_small:
-            self.prompt4 = ("What are 5 other variables that should be taken into account for this model? Separate them "
-                            "by ,")
-        else:
-            self.prompt4 = ("I want the causal graph to be informative. What would be other variables of interest? "
-                        "Make sure to include forks, colliders, and mediators in addition to other variables. "
-                        "Provide a comprehensive list. In the output only include the variable names.")
-        self.prompt5 = ("List all the edges associated with the above variables in the graph. I want the graph to be as "
-                        "expressive as possible. Include edges for mediators, colliders, and forks "
-                        "Use  -> to indicate to indicate an edge between two variables. The format is node1 -> node2. "
-                        "Also no need to number the edges. Include one set of edge in one line. Double check to ensure "
-                        "the edges do not form a cycle.")
+    def __init__(self, query, data, additional_info=""):
 
-        if make_small:
-            self.prompt6 = ("Provide me with 1 possible unobserved variables related to this model. At least 1 must be "
-                           "an unobserved confounder")
-        else:
-            self.prompt6 = ("Could there be any unobserved variables in the model, especially unobserved confounders? "
-                        "If yes, what are they? Only include the variable names in your response.")
-        self.prompt7 = "List the edges involving the unobserved variables? Use -> to indicate an edge."
+        instruction1 = "Respond with only the variable name. Avoid full sentences"
+        instruction2 = "Respond with only the variable names, separated by commas"
+
+        self.query = query
+        self.other_info = additional_info
+
+        self.prompt0 = construct_prompt_0()
+        self.prompt_query = construct_prompt_1(query, data, additional_info)
+        self.prompt_treat = ask_treatment(data, instruction1)
+        self.prompt_out = ask_outcome(data, instruction1)
+        self.prompt_covar = ask_covariates(data, instruction2)
+        self.prompt_edge = ask_edges()
+
+        self.all_query_prompts = {"query": self.prompt_query, "covar":self.prompt_covar, 
+                                 "treat":self.prompt_treat, "edges":self.prompt_edge, "outcome":self.prompt_out}
 
 
     def send_query_gpt(self, include_confounder=False):
         """
-        Sends a sequence of queries to GPT and collects responses
+        Sends a sequence of queries to GPT and collects the responses
+
         Args:
-            include_confounder: (bool)
+            include_confounder: (bool) whether to include the confounder or not 
         Returns:
-            (List[str]) the response from the GPT to the prompts. The indices correspond to the following information
-            0: Direct answer of the causal query (Not Required. IGNORE)
-            1. Treatment Variable
-            2. Outcome Variable
-            3. Other variables
-            4. Edges between the variables
+            (List[str]) the response from GPT to the prompts. The indices correspond to the following information
+                0: Direct answer of the causal query (Not Required. IGNORE)
+                1. Treatment Variable
+                2. Outcome Variable
+                3. Other variables
+                4. Edges between the variables
         """
 
-        all_prompts = [self.prompt1, self.prompt2, self.prompt3, self.prompt4, self.prompt5]
-        if include_confounder:
-            all_prompts = all_prompts + [self.prompt6] + [self.prompt7]
-        answers = []
+        #if include_confounder:
+        #    all_prompts = all_prompts + [self.prompt6] + [self.prompt7]
+        answers = {}
         print("Asking GPT to help answer the query: {}".format(self.query))
         print("------------------------------------------------------")
         all_history = [ {"role": "system", "content": "Clear memory. Start fresh."},
                         {"role":"system", "content": self.prompt0}]
-        for p in all_prompts:
-            answer = interface_gpt(all_history, p)
-            print(f"Q: {p}\nA: {answer}\n")
+        order = ["query", "treat", "outcome", "covar", "edges"]
+        for key in order:
+            q = self.all_query_prompts[key]
+            answer = interface_gpt(all_history, q)
+            print(f"Q: {q}\nA: {answer}\n")
             all_history.append({"role": "assistant", "content": answer})
-            answers.append(answer)
+            answers[key] = answer
         print("-------------------Done----------------\n")
+        #sys.exit()
+
         return answers

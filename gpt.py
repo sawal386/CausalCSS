@@ -4,7 +4,7 @@ import openai
 import os
 from util import filter_str
 
-def interface_gpt(messages, question, temperature=0, top_p=1):
+def interface_gpt(messages, question, temperature=1, top_p=0.001):
     """
     Interfaces with GPT model to generate answer to a query via OpenAI API
 
@@ -21,7 +21,7 @@ def interface_gpt(messages, question, temperature=0, top_p=1):
 
     messages.append({"role":"user", "content":question})
     try:
-        response = openai.ChatCompletion.create(model="gpt-4", messages=messages, temperature=temperature,
+        response = openai.ChatCompletion.create(model="gpt-4o", messages=messages, temperature=temperature,
                                                 top_p=top_p)
         answer = response['choices'][0]['message']['content'].strip()
 
@@ -60,11 +60,11 @@ def restructure_gpt_response(response):
         (dict)
     """
 
-    print("length repsose", len(response))
-    dict_graph = {"treatment": filter_str(response[1].strip()), "outcome": filter_str(response[2].strip()),
-                  "other_vars": [filter_str(var.strip()) for var in response[3].split(",")],
+
+    dict_graph = {"treatment": filter_str(response["treat"].strip()), "outcome": filter_str(response["outcome"].strip()),
+                  "other_vars": [filter_str(var.strip()) for var in response["covar"].split(",")],
                   "unobserved_vars":None, "unobserved_edges":None}
-    str_edge_list = response[4].split("\n")
+    str_edge_list = response["edges"].split("\n")
     dict_graph["edges"] = extract_edges(str_edge_list)
     if len(response) > 5:
         print("Unobserved variables are also included in the model")

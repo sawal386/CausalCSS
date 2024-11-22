@@ -30,7 +30,7 @@ def filter_str(text):
     Returns:
         (str)
     """
-    cleaned = "_".join(text.strip().strip(".").split())
+    cleaned = text.strip().strip(".")
 
     return cleaned
 
