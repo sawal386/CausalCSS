@@ -48,10 +48,10 @@ class CausalQuery:
 
         ## Uncomment this
         raw_response = self.prompt.send_query_gpt(self.hidden_vars)
-        print(example)
+        #print(example)
         #print(raw_response1)
 
-        return restructure_gpt_response(example)
+        return restructure_gpt_response(raw_response)
 
     def plot_graph(self):
         """

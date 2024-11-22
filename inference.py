@@ -107,7 +107,7 @@ class DowhyInference(Inference):
         self.model = dowhy.CausalModel(data=data, treatment=self.treat_var, outcome=self.outcome_var,
                                        graph=format_graph_DOT(self.causal_graph.graph))
 
-        self.model.view_model(layout="dot")  # This generates the graph
+        #self.model.view_model(layout="dot")  # This generates the graph
         #im_graph.draw("graph_plots/dowhy_model.png", prog="dot")
 
 

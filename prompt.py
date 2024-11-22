@@ -110,7 +110,6 @@ def ask_edges():
     """
 
     prompt =("List the plausible edges for the causal graph consisting based on the information so far. "
-            "I want the graph to be expressive. Include edges for mediators, colliders, and forks."
             "\nWrite output in the format node1 -> node2. Include one set of edge in one line. Avoid cycles. " )
     
     return prompt 

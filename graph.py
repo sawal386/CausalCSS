@@ -51,7 +51,7 @@ class CausalGraph:
         self.graph.add_node(self.outcome_var, observed=True, treatment=False, outcome=True)
         for node in self.other_vars:
             self.graph.add_node(node, observed=True, treatment=False, outcome=False)
-        self.graph.add_edges_from([(u, v, {'observed': True}) for u, v in self.edge_list if u != self.treat_var or v != self.outcome_var ])
+        self.graph.add_edges_from([(u, v, {'observed': True}) for u, v in self.edge_list ])
 
         if self.unobserved_vars is not None:
             for node in self.unobserved_vars:
