@@ -1,0 +1,21 @@
+[  {
+    "data_description": "In a study to determine the causal effect of sending an email reminder on the repayment of debts, a fintech company conducted a random test involving 5000 customers who were late on their payments. Each customer was randomly assigned to either receive an email about negotiating their debt or to be part of a control group that did not receive the email. Data was collected on the amounts paid by the late customers after this intervention. The dataset collections_email.csv contains variables including the amount paid (`payments`), whether the email was sent (`email`), whether the email was opened (`opened`), whether the customer contacted the collections department to negotiate their debt after having received the email (`agreement`), the customer's credit limit before being late (`credit_limit`), and the customer's risk score prior to the delivery of the email (`risk_score`).",
+    "question": "What is the average treatment effect (ATE) on payments from sending the email reminder to late-paying customers? Please choose the variables to adjust for.",
+    "answer": "4.43",
+    "data_files": [
+        "collections_email.csv"
+    ],
+    "meta_data": {
+        "reference": "Causal Inference for the Brave and True 7",
+        "keywords": [
+            "Causality",
+            "Randomized experiment",
+            "Regression analysis",
+            "Average treatment effect",
+            "Confounder selection"
+        ],
+        "question_type": "numerical"
+    }
+}
+]
+    
